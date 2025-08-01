@@ -30,22 +30,108 @@ if ! type "swiftlint" > /dev/null; then
   echo "❌ Please install swiftlint"
 fi
 
+# gnu sed
+if ! type "gsed" > /dev/null; then
+  echo "❌ Please install gnu sed"
+fi
+
+DIRECTORY="$1"
+SWIFT_IDIOMATIC_NAME=$(echo "$1" | gsed -r 's/(^|_|-|[[:space:]])(.)/\U\2/g')
+
 # Maak een nieuwe directory voor het project
-mkdir "$1"
-cd "$1" || exit
+mkdir "$DIRECTORY"
+cd "$DIRECTORY" || exit
 echo "✅ Successfully created new project directory"
 
 
 # Maak een nieuw Swift Package project
 echo "🚧 Creating a new Swift Package project"
-swift package init
+swift package init --type library --name $SWIFT_IDIOMATIC_NAME
 echo "✅ Successfully created a new Swift Package project"
 
-# Om dit in Xcode te laten werk, moet er een `main` struct zijn in de source folder
-cat <<EOT > Sources/$1/$1.swift 
-@main struct $1 {
-    static func main() {
+# Create Vapor project boilerplate
+mkdir Sources/Api
+mkdir Tests/ApiTests
 
+cat <<EOT > Sources/Api/entrypoint.swift
+import Vapor
+import Logging
+import NIOCore
+import NIOPosix
+
+@main
+enum Entrypoint {
+    static func main() async throws {
+        var env = try Environment.detect()
+        try LoggingSystem.bootstrap(from: &env)
+        
+        let app = try await Application.make(env)
+
+        // This attempts to install NIO as the Swift Concurrency global executor.
+        // You can enable it if you'd like to reduce the amount of context switching between NIO and Swift Concurrency.
+        // Note: this has caused issues with some libraries that use `.wait()` and cleanly shutting down.
+        // If enabled, you should be careful about calling async functions before this point as it can cause assertion failures.
+        // let executorTakeoverSuccess = NIOSingletons.unsafeTryInstallSingletonPosixEventLoopGroupAsConcurrencyGlobalExecutor()
+        // app.logger.debug("Tried to install SwiftNIO's EventLoopGroup as Swift's global concurrency executor", metadata: ["success": .stringConvertible(executorTakeoverSuccess)])
+        
+        do {
+            try await configure(app)
+            try await app.execute()
+        } catch {
+            app.logger.report(error: error)
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
+}
+
+EOT
+
+cat <<EOT > Sources/Api/routes.swift
+import Vapor
+
+func routes(_ app: Application) throws {
+    app.get { req async in
+        "It works!"
+    }
+
+    app.get("hello") { req async -> String in
+        "Hello, world!"
+    }
+}
+
+EOT
+
+cat <<EOT > Sources/Api/configure.swift
+import Vapor
+
+// configures your application
+public func configure(_ app: Application) async throws {
+    // uncomment to serve files from /Public folder
+    // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+
+    // register routes
+    try routes(app)
+}
+
+EOT
+
+cat <<EOT > Tests/ApiTests/${SWIFT_IDIOMATIC_NAME}ApiTests.swift
+@testable import Api
+import VaporTesting
+import Testing
+
+@Suite("App Tests")
+struct ${SWIFT_IDIOMATIC_NAME}ApiTests {
+    @Test("Test Hello World Route")
+    func helloWorld() async throws {
+        try await withApp(configure: configure) { app in
+            try await app.testing().test(.GET, "hello", afterResponse: { res async in
+                #expect(res.status == .ok)
+                #expect(res.body.string == "Hello, world!")
+            })
+        }
     }
 }
 EOT
@@ -62,20 +148,55 @@ cat <<EOT > Package.swift
 import PackageDescription
 
 let package = Package(
-    name: "$1",
-    products: [
-        .executable(name: "$1", targets: ["$1"]),
+    name: "$SWIFT_IDIOMATIC_NAME",
+    platforms: [
+       .macOS(.v13)
     ],
-    dependencies: [],
+    products: [
+        .library(name: "$SWIFT_IDIOMATIC_NAME", targets: ["$SWIFT_IDIOMATIC_NAME"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.115.1"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
+    ],
     targets: [
-        .executableTarget(
-            name: "$1",
-            dependencies: []),
+        .target(
+            name: "$SWIFT_IDIOMATIC_NAME",
+            dependencies: [],
+            swiftSettings: swiftSettings
+        ),
         .testTarget(
-            name: "${1}Tests",
-            dependencies: ["$1"]),
+            name: "${SWIFT_IDIOMATIC_NAME}Tests",
+            dependencies: [
+                .target(name: "$SWIFT_IDIOMATIC_NAME"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .executableTarget(
+            name: "Api",
+            dependencies: [
+                .target(name: "$SWIFT_IDIOMATIC_NAME"),
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "ApiTests", 
+            dependencies: [
+                .target(name: "Api"),
+                .product(name: "VaporTesting", package: "vapor"),
+            ],
+            swiftSettings: swiftSettings
+        ),
     ]
 )
+
+var swiftSettings: [SwiftSetting] { [
+    .enableUpcomingFeature("ExistentialAny"),
+] }
+
 EOT
 
 # Creeer een pre-commit hook
@@ -103,9 +224,9 @@ echo ""
 
 # Creeer een README.md
 cat <<EOT > README.md
-# $1
+# $SWIFT_IDIOMATIC_NAME
 
-[![codecov](https://codecov.io/gh/wouterwietses/$1/graph/badge.svg)](https://codecov.io/gh/wouterwietses/$1)
+[![codecov](https://codecov.io/gh/wouterwietses/$DIRECTORY/graph/badge.svg)](https://codecov.io/gh/wouterwietses/$DIRECTORY)
 
 EOT
 
@@ -176,7 +297,7 @@ npm install --save-dev husky
 npm install --save-dev @commitlint/cli @commitlint/config-conventional
 npx husky init
 
-echo "npx --no -- commitlint --edit \$1" > .husky/commit-msg
+echo "npx --no -- commitlint --edit \$DIRECTORY" > .husky/commit-msg
 echo "export default { extends: ['@commitlint/config-conventional'] };" > commitlint.config.mjs
 
 # Creeer een pre-commit hook
@@ -278,7 +399,7 @@ jobs:
           PROFDATA_PATH=\$(dirname "\$CODECOV_PATH")/default.profdata
 
           ALL_OBJECT_FILES=\$(find .build -name "*.o" -type f)
-          SOURCE_OBJECT_FILES=\$(echo "\$ALL_OBJECT_FILES" | grep "$1.build")
+          SOURCE_OBJECT_FILES=\$(echo "\$ALL_OBJECT_FILES" | grep "$SWIFT_IDIOMATIC_NAME.build")
 
           xcrun llvm-cov report -instr-profile \$PROFDATA_PATH \$SOURCE_OBJECT_FILES
 
@@ -293,10 +414,10 @@ git commit -m "chore: configured remote quality gates"
 
 echo "✅ Successfully created remote quality gates"
 
-gh repo create $1 --public --source=. --remote=upstream
-git remote add origin https://github.com/wouterwietses/$1.git
-git push -u origin main
-echo "✅ Successfully created git repo and GitHub repository"
+# gh repo create $1 --public --source=. --remote=upstream
+# git remote add origin https://github.com/wouterwietses/$1.git
+# git push -u origin main
+# echo "✅ Successfully created git repo and GitHub repository"
 
 echo ""
 
