@@ -1,7 +1,8 @@
 #!/bin/bash
 
-CREATE_SPM="$PWD/scripts/create-spm-project.sh"
+CREATE_API_SPEC="$PWD/scripts/create-api-spec.sh"
 CREATE_PACKAGE_JSON="$PWD/scripts/create-package-json.sh"
+CREATE_SPM="$PWD/scripts/create-spm-project.sh"
 CREATE_CONTAINER="$PWD/scripts/create-container.sh"
 CREATE_DOCS="$PWD/scripts/create-docs.sh"
 CREATE_GIT="$PWD/scripts/create-git.sh"
@@ -107,9 +108,10 @@ mkdir "$DIRECTORY"
 cd "$DIRECTORY" || exit
 echo "✅ Successfully created new project directory"
 
-sh $CREATE_SPM $SWIFT_IDIOMATIC_NAME $SWIFT_VERSION $TEST_OUTPUT
 sh $CREATE_PACKAGE_JSON $DIRECTORY
-sh $CREATE_CONTAINER $DIRECTORY $SWIFT_IDIOMATIC_NAME $SWIFT_VERSION $TEST_OUTPUT
+sh $CREATE_API_SPEC $DIRECTORY $SWIFT_IDIOMATIC_NAME
+sh $CREATE_SPM $SWIFT_IDIOMATIC_NAME $SWIFT_VERSION $TEST_OUTPUT
+sh $CREATE_CONTAINER $DIRECTORY $SWIFT_VERSION $TEST_OUTPUT
 sh $CREATE_DOCS $DIRECTORY $SWIFT_IDIOMATIC_NAME
 sh $CREATE_GIT $DIRECTORY $SWIFT_IDIOMATIC_NAME
 

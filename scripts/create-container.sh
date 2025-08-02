@@ -1,9 +1,8 @@
 #!/bin/bash
 
 CONTAINER_NAME=$1
-SWIFT_IDIOMATIC_NAME=$2
-SWIFT_VERSION=$3
-TEST_OUTPUT=$4
+SWIFT_VERSION=$2
+TEST_OUTPUT=$3
 
 cat << 'EOT' > Dockerfile
 # ================================
@@ -150,78 +149,6 @@ services:
     # user: '0' # uncomment to run as root for testing purposes even though Dockerfile defines 'vapor' user.
     command: ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
 
-EOT
-
-npm install --save-dev @usebruno/cli
-
-mkdir -p api/collection/$CONTAINER_NAME
-
-cat << EOT > api/collection/$CONTAINER_NAME/bruno.json
-{
-  "version": "1",
-  "name": "$CONTAINER_NAME",
-  "type": "collection",
-  "ignore": [
-    "node_modules",
-    ".git"
-  ]
-}
-EOT
-
-cat << EOT > api/collection/$CONTAINER_NAME/health-check.bru
-meta {
-  name: Health check
-  type: http
-  seq: 1
-}
-
-get {
-  url: http://localhost:8080/health
-  body: none
-  auth: inherit
-}
-
-tests {
-  test("should return 200", function () {
-    expect(res.getStatus()).to.equal(200);
-  });
-   
-  test("should contain key with value ACTIVE", function () {
-    expect(res.getBody()).to.eql({
-      status: "ACTIVE",
-    });
-  });
-}
-EOT
-
-cat << EOT > api/openapi.yaml
-openapi: 3.1.1
-info:
-  title: $SWIFT_IDIOMATIC_NAME API
-  version: 1.0.0
-  description: $SWIFT_IDIOMATIC_NAME API
-paths:
-  /healtcheck:
-    get:
-      summary: Returns the status of this service
-      responses:
-        "200":
-          description: Success response
-          content:
-            application/json:
-              schema:
-                \$ref: "#/components/schemas/HealthCheckResponse"
-
-components:
-  schemas:
-    HealthCheckResponse:
-      type: object
-      required:
-        - status
-      properties:
-        status:
-          type: string
-          enum: ["ACTIVE"]
 EOT
 
 case $TEST_OUTPUT in
