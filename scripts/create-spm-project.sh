@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SWIFT_IDIOMATIC_NAME=$1
+SWIFT_VERSION=$2
 
 # Maak een nieuw Swift Package project
 echo "🚧 Creating a new Swift Package project"
@@ -108,8 +109,6 @@ struct ${SWIFT_IDIOMATIC_NAME}ApiTests {
     }
 }
 EOT
-
-SWIFT_VERSION="6.1"
 
 cat <<EOT > .swift-version 
 $SWIFT_VERSION
