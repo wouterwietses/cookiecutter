@@ -1,8 +1,9 @@
 #!/bin/bash
 
 CONTAINER_NAME=$1
-SWIFT_VERSION=$2
-TEST_OUTPUT=$3
+SWIFT_IDIOMATIC_NAME=$2
+SWIFT_VERSION=$3
+TEST_OUTPUT=$4
 
 cat << 'EOT' > Dockerfile
 # ================================
@@ -118,9 +119,6 @@ README.md
 TECHDEBT.md
 EOT
 
-# Ohterwise variable will be expanded and only debug ends up in the final file
-LOG_LEVEL='${LOG_LEVEL:-debug}'
-
 cat << EOT > docker-compose.yml
 # Docker Compose file for Vapor
 #
@@ -138,7 +136,7 @@ cat << EOT > docker-compose.yml
 #
 
 x-shared_environment: &shared_environment
-  LOG_LEVEL: $LOG_LEVEL
+  LOG_LEVEL: \${LOG_LEVEL:-debug}
   
 services:
   app:
@@ -194,6 +192,36 @@ tests {
     });
   });
 }
+EOT
+
+cat << EOT > api/openapi.yaml
+openapi: 3.1.1
+info:
+  title: $SWIFT_IDIOMATIC_NAME API
+  version: 1.0.0
+  description: $SWIFT_IDIOMATIC_NAME API
+paths:
+  /healtcheck:
+    get:
+      summary: Returns the status of this service
+      responses:
+        "200":
+          description: Success response
+          content:
+            application/json:
+              schema:
+                \$ref: "#/components/schemas/HealthcheckResponse"
+
+components:
+  schemas:
+    HealthcheckResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: ["ACTIVE"]
 EOT
 
 case $TEST_OUTPUT in
