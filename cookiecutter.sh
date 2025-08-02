@@ -51,6 +51,7 @@ echo "✅ Successfully created a new Swift Package project"
 
 # Create Vapor project boilerplate
 mkdir Sources/Api
+mkdir Sources/Api/Controllers
 mkdir Tests/ApiTests
 
 cat <<EOT > Sources/Api/entrypoint.swift
@@ -92,13 +93,7 @@ cat <<EOT > Sources/Api/routes.swift
 import Vapor
 
 func routes(_ app: Application) throws {
-    app.get { req async in
-        "It works!"
-    }
-
-    app.get("hello") { req async -> String in
-        "Hello, world!"
-    }
+    try app.register(collection: HealthcheckController())
 }
 
 EOT
@@ -117,6 +112,26 @@ public func configure(_ app: Application) async throws {
 
 EOT
 
+cat <<EOT > Sources/Api/Controllers/HealthcheckController.swift
+import Vapor
+
+struct HealthcheckController: RouteCollection {
+    func boot(routes: any Vapor.RoutesBuilder) throws {
+        let healtCheck = routes.grouped("healthcheck")
+        healtCheck.get(use: status)
+    }
+
+    func status(_ req: Request) async throws -> HealthCheckResponse {
+        HealthCheckResponse(status: "ACTIVE")
+    }
+
+    struct HealthCheckResponse: Content {
+        let status: String
+    }
+}
+
+EOT
+
 cat <<EOT > Tests/ApiTests/${SWIFT_IDIOMATIC_NAME}ApiTests.swift
 @testable import Api
 import VaporTesting
@@ -124,12 +139,12 @@ import Testing
 
 @Suite("App Tests")
 struct ${SWIFT_IDIOMATIC_NAME}ApiTests {
-    @Test("Test Hello World Route")
-    func helloWorld() async throws {
+    @Test("Test healthcheck Route")
+    func healthcheck() async throws {
         try await withApp(configure: configure) { app in
-            try await app.testing().test(.GET, "hello", afterResponse: { res async in
+            try await app.testing().test(.GET, "healthcheck", afterResponse: { res async in
                 #expect(res.status == .ok)
-                #expect(res.body.string == "Hello, world!")
+                #expect(res.body.string == "{\"status\":\"ACTIVE\"}")
             })
         }
     }
