@@ -168,15 +168,15 @@ cat << EOT > api/collection/$CONTAINER_NAME/bruno.json
 }
 EOT
 
-cat << EOT > api/collection/$CONTAINER_NAME/healthcheck.bru
+cat << EOT > api/collection/$CONTAINER_NAME/health-check.bru
 meta {
-  name: Healthcheck
+  name: Health check
   type: http
   seq: 1
 }
 
 get {
-  url: http://localhost:8080/healthcheck
+  url: http://localhost:8080/health
   body: none
   auth: inherit
 }
@@ -210,11 +210,11 @@ paths:
           content:
             application/json:
               schema:
-                \$ref: "#/components/schemas/HealthcheckResponse"
+                \$ref: "#/components/schemas/HealthCheckResponse"
 
 components:
   schemas:
-    HealthcheckResponse:
+    HealthCheckResponse:
       type: object
       required:
         - status

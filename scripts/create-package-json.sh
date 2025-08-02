@@ -13,7 +13,7 @@ cat << EOT > package.json
     "docker:run": "docker stop $CONTAINER_NAME || true && docker rm $CONTAINER_NAME || true && docker run -d -p 8080:8080 --name $CONTAINER_NAME $IMAGE_NAME",
     "docker:stop": "docker stop $CONTAINER_NAME",
     "docker:exec": "docker exec -it $CONTAINER_NAME /bin/sh",
-    "test:smoke": "curl -s http://localhost:8080/healthcheck | jq .",
+    "test:smoke": "curl -s http://localhost:8080/health | jq .",
     "test:integration": "cd api/collection/$DIRECTORY_NAME && bru run"
   }
 }

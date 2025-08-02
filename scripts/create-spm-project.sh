@@ -53,7 +53,7 @@ cat <<EOT > Sources/Api/routes.swift
 import Vapor
 
 func routes(_ app: Application) throws {
-    try app.register(collection: HealthcheckController())
+    try app.register(collection: HealthCheckController())
 }
 
 EOT
@@ -72,12 +72,12 @@ public func configure(_ app: Application) async throws {
 
 EOT
 
-cat <<EOT > Sources/Api/Controllers/HealthcheckController.swift
+cat <<EOT > Sources/Api/Controllers/HealthCheckController.swift
 import Vapor
 
-struct HealthcheckController: RouteCollection {
+struct HealthCheckController: RouteCollection {
     func boot(routes: any Vapor.RoutesBuilder) throws {
-        let healtCheck = routes.grouped("healthcheck")
+        let healtCheck = routes.grouped("health")
         healtCheck.get(use: status)
     }
 
@@ -99,10 +99,10 @@ import Testing
 
 @Suite("App Tests")
 struct ${SWIFT_IDIOMATIC_NAME}ApiTests {
-    @Test("Test healthcheck Route")
-    func healthcheck() async throws {
+    @Test("Test health check Route")
+    func healthCheck() async throws {
         try await withApp(configure: configure) { app in
-            try await app.testing().test(.GET, "healthcheck", afterResponse: { res async in
+            try await app.testing().test(.GET, "health", afterResponse: { res async in
                 #expect(res.status == .ok)
                 #expect(res.body.string == "{\"status\":\"ACTIVE\"}")
             })
