@@ -2,6 +2,7 @@
 
 SWIFT_IDIOMATIC_NAME=$1
 SWIFT_VERSION=$2
+TEST_OUTPUT=$3
 
 # Maak een nieuw Swift Package project
 echo "🚧 Creating a new Swift Package project"
@@ -184,10 +185,17 @@ echo "✅ Successfully added sample test"
 
 echo ""
 
-echo "🚧 Perform clean build and initial test run"
-# Voer schoon opzetten van het project uit voor eventuele fouten
-swift build
+case $TEST_OUTPUT in
+  true)
+    echo "🚧 Perform clean build and initial test run"
+    # Voer schoon opzetten van het project uit voor eventuele fouten
+    swift build
 
-# Voer de tests uit
-swift test
-echo "✅ Successfully built project and performed test run"
+    # Voer de tests uit
+    swift test
+    echo "✅ Successfully built project and performed test run"
+    ;;
+  false)
+    echo "✅ Package created"
+    ;;
+esac

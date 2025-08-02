@@ -6,12 +6,63 @@ CREATE_CONTAINER="$PWD/scripts/create-container.sh"
 CREATE_DOCS="$PWD/scripts/create-docs.sh"
 CREATE_GIT="$PWD/scripts/create-git.sh"
 
-# Gebruik:
-# `# ./cookiecutter.sh <projectnaam>`
+# Default variable values
+DIRECTORY=""
+SWIFT_VERSION="6.1"
+TEST_OUTPUT=false
 
-# Controleer of er een projectnaam is opgegeven
+# Function to display script usage
+usage() {
+ echo "Usage: $0 [OPTIONS]"
+ echo "Options:"
+ echo " -h, --help      Display this help message"
+ echo " -t, --test      Test package & docker config"
+ echo " -n, --name      Name of the project (required)"
+}
+
+has_argument() {
+    [[ ("$1" == *=* && -n ${1#*=}) || ( ! -z "$2" && "$2" != -*)  ]];
+}
+
+extract_argument() {
+  echo "${2:-${1#*=}}"
+}
+
+# Function to handle options and arguments
+handle_options() {
+  while [ $# -gt 0 ]; do
+    case $1 in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      -t | --test)
+        TEST_OUTPUT=true
+        ;;
+      -n | --name*)
+        if ! has_argument $@; then
+          echo "Name not specified." >&2
+          usage
+          exit 1
+        fi
+
+        DIRECTORY=$(extract_argument $@)
+
+        shift
+        ;;
+      *)
+        echo "Invalid option: $1" >&2
+        usage
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+# Check if there are options provided
 if [ -z "$1" ]; then
-  echo "❌ Geef een projectnaam op als argument aan het script."
+  usage
   exit 1
 fi
 
@@ -41,18 +92,24 @@ if ! type "gsed" > /dev/null; then
   echo "❌ Please install gnu sed"
 fi
 
-DIRECTORY="$1"
-SWIFT_IDIOMATIC_NAME=$(echo "$1" | gsed -r 's/(^|_|-|[[:space:]])(.)/\U\2/g')
-SWIFT_VERSION="6.1"
+# Main script execution
+handle_options "$@"
+
+if [ -z "$DIRECTORY" ]; then
+  usage
+  exit 1
+fi
+
+SWIFT_IDIOMATIC_NAME=$(echo "$DIRECTORY" | gsed -r 's/(^|_|-|[[:space:]])(.)/\U\2/g')
 
 # Maak een nieuwe directory voor het project
 mkdir "$DIRECTORY"
 cd "$DIRECTORY" || exit
 echo "✅ Successfully created new project directory"
 
-sh $CREATE_SPM $SWIFT_IDIOMATIC_NAME $SWIFT_VERSION
+sh $CREATE_SPM $SWIFT_IDIOMATIC_NAME $SWIFT_VERSION $TEST_OUTPUT
 sh $CREATE_PACKAGE_JSON $DIRECTORY
-sh $CREATE_CONTAINER $DIRECTORY $SWIFT_VERSION
+sh $CREATE_CONTAINER $DIRECTORY $SWIFT_VERSION $TEST_OUTPUT
 sh $CREATE_DOCS $DIRECTORY $SWIFT_IDIOMATIC_NAME
 sh $CREATE_GIT $DIRECTORY $SWIFT_IDIOMATIC_NAME
 

@@ -2,6 +2,7 @@
 
 CONTAINER_NAME=$1
 SWIFT_VERSION=$2
+TEST_OUTPUT=$3
 
 cat << 'EOT' > Dockerfile
 # ================================
@@ -195,8 +196,17 @@ tests {
 }
 EOT
 
-npm run docker:build
-npm run docker:run
-npm run test:smoke
-npm run test:integration
-npm run docker:stop
+case $TEST_OUTPUT in
+  true)
+    echo "🚧 Perform docker build, smoke test and integration test"
+    npm run docker:build
+    npm run docker:run
+    npm run test:smoke
+    npm run test:integration
+    npm run docker:stop
+    echo "✅ Successfully built container and performed tests"
+    ;;
+  false)
+    echo "✅ Container files created"
+    ;;
+esac
