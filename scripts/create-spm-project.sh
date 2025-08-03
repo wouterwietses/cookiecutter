@@ -46,16 +46,18 @@ enum Entrypoint {
         try await app.asyncShutdown()
     }
 }
-
 EOT
 
 cat <<EOT > Sources/Api/routes.swift
+import OpenAPIRuntime
+import OpenAPIVapor
 import Vapor
 
 func routes(_ app: Application) throws {
-    try app.register(collection: HealthCheckController())
+    let transport = VaporTransport(routesBuilder: app)
+    let handler = Handler()
+    try handler.registerHandlers(on: transport, serverURL: URL(string: "/")!)
 }
-
 EOT
 
 cat <<EOT > Sources/Api/configure.swift
@@ -69,27 +71,16 @@ public func configure(_ app: Application) async throws {
     // register routes
     try routes(app)
 }
-
 EOT
 
-cat <<EOT > Sources/Api/Controllers/HealthCheckController.swift
+cat <<EOT > Sources/Api/Handler.swift
 import Vapor
 
-struct HealthCheckController: RouteCollection {
-    func boot(routes: any Vapor.RoutesBuilder) throws {
-        let healtCheck = routes.grouped("health")
-        healtCheck.get(use: status)
-    }
-
-    func status(_ req: Request) async throws -> HealthCheckResponse {
-        HealthCheckResponse(status: "ACTIVE")
-    }
-
-    struct HealthCheckResponse: Content {
-        let status: String
+struct Handler: APIProtocol {
+    func getHealth(_ input: Operations.GetHealth.Input) async throws -> Operations.GetHealth.Output {
+        return .ok(.init(body: .json(.init(status: .active))))
     }
 }
-
 EOT
 
 cat <<EOT > Tests/ApiTests/${SWIFT_IDIOMATIC_NAME}ApiTests.swift
@@ -102,14 +93,30 @@ struct ${SWIFT_IDIOMATIC_NAME}ApiTests {
     @Test("Test health check Route")
     func healthCheck() async throws {
         try await withApp(configure: configure) { app in
-            try await app.testing().test(.GET, "health", afterResponse: { res async in
+            try await app.testing().test(.GET, "health", afterResponse: { res async throws in
                 #expect(res.status == .ok)
-                #expect(res.body.string == "{\"status\":\"ACTIVE\"}")
+                let status: String = try res.content.get(at: "status")
+                #expect(status == "ACTIVE")
             })
         }
     }
 }
 EOT
+
+cat << EOT > Sources/Api/openapi-generator-config.yaml
+generate:
+  - types
+  - server
+accessModifier: internal
+namingStrategy: idiomatic
+EOT
+
+# Symlink so the generator can pick up the file.
+# Sources should always be in api/openapi.yaml
+WORKING_DIR=$PWD
+cd Sources/Api
+ln -s ../../api/openapi.yaml .
+cd $WORKING_DIR
 
 cat <<EOT > .swift-version 
 $SWIFT_VERSION
@@ -129,6 +136,9 @@ let package = Package(
         .library(name: "$SWIFT_IDIOMATIC_NAME", targets: ["$SWIFT_IDIOMATIC_NAME"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.7.0"),
+        .package(url: "https://github.com/swift-server/swift-openapi-vapor", from: "1.0.0"),
         .package(url: "https://github.com/vapor/vapor.git", from: "4.115.1"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
     ],
@@ -152,8 +162,13 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIVapor", package: "swift-openapi-vapor"),
             ],
-            swiftSettings: swiftSettings
+            swiftSettings: swiftSettings,
+            plugins: [
+                .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator"),
+            ]
         ),
         .testTarget(
             name: "ApiTests", 
@@ -169,7 +184,6 @@ let package = Package(
 var swiftSettings: [SwiftSetting] { [
     .enableUpcomingFeature("ExistentialAny"),
 ] }
-
 EOT
 
 # Creeer een pre-commit hook

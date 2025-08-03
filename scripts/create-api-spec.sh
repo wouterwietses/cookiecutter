@@ -51,8 +51,11 @@ info:
   title: $SWIFT_IDIOMATIC_NAME API
   version: 1.0.0
   description: $SWIFT_IDIOMATIC_NAME API
+servers:
+  - url: http://localhost:8080
+    description: Local server host.
 paths:
-  /healtcheck:
+  /health:
     get:
       summary: Returns the status of this service
       responses:
