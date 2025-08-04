@@ -11,6 +11,7 @@ CREATE_GIT="$PWD/scripts/create-git.sh"
 DIRECTORY=""
 SWIFT_VERSION="6.1"
 TEST_OUTPUT=false
+CREATE_REMOTE_REPOSITORY=false
 
 # Function to display script usage
 usage() {
@@ -18,6 +19,7 @@ usage() {
  echo "Options:"
  echo " -h, --help      Display this help message"
  echo " -t, --test      Test package & docker config"
+ echo " -r, --remote    Create remote repository"
  echo " -n, --name      Name of the project (required)"
 }
 
@@ -39,6 +41,9 @@ handle_options() {
         ;;
       -t | --test)
         TEST_OUTPUT=true
+        ;;
+      -r | --remote)
+        CREATE_REMOTE_REPOSITORY=true
         ;;
       -n | --name*)
         if ! has_argument $@; then
@@ -113,6 +118,6 @@ sh $CREATE_API_SPEC $DIRECTORY $SWIFT_IDIOMATIC_NAME
 sh $CREATE_SPM $SWIFT_IDIOMATIC_NAME $SWIFT_VERSION $TEST_OUTPUT
 sh $CREATE_CONTAINER $DIRECTORY $SWIFT_VERSION $TEST_OUTPUT
 sh $CREATE_DOCS $DIRECTORY $SWIFT_IDIOMATIC_NAME
-sh $CREATE_GIT $DIRECTORY $SWIFT_IDIOMATIC_NAME
+sh $CREATE_GIT $DIRECTORY $SWIFT_IDIOMATIC_NAME $CREATE_REMOTE_REPOSITORY
 
 echo "✅ Swift PM project '$SWIFT_IDIOMATIC_NAME' succesvol aangemaakt met een executable en tests."

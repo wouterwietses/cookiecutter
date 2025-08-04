@@ -6,13 +6,28 @@ TEST_OUTPUT=$3
 
 # Maak een nieuw Swift Package project
 echo "🚧 Creating a new Swift Package project"
-swift package init --type library --name $SWIFT_IDIOMATIC_NAME
+# swift package init --type library --name $SWIFT_IDIOMATIC_NAME
 echo "✅ Successfully created a new Swift Package project"
 
-# Create Vapor project boilerplate
-mkdir Sources/Api
-mkdir Sources/Api/Controllers
-mkdir Tests/ApiTests
+mkdir -p Sources/{$SWIFT_IDIOMATIC_NAME,Api}
+mkdir -p Tests/{${SWIFT_IDIOMATIC_NAME}Tests,ApiTests}
+
+cat <<EOT > Sources/$SWIFT_IDIOMATIC_NAME/$SWIFT_IDIOMATIC_NAME.swift
+struct $SWIFT_IDIOMATIC_NAME {
+    func hello() -> String {
+        "$SWIFT_IDIOMATIC_NAME"
+    }
+}
+EOT
+
+cat <<EOT > Tests/${SWIFT_IDIOMATIC_NAME}Tests/${SWIFT_IDIOMATIC_NAME}Tests.swift
+@testable import $SWIFT_IDIOMATIC_NAME
+import Testing
+
+@Test func example() async throws {
+    #expect($SWIFT_IDIOMATIC_NAME().hello() == "$SWIFT_IDIOMATIC_NAME")
+}
+EOT
 
 cat <<EOT > Sources/Api/entrypoint.swift
 import Vapor
@@ -103,7 +118,7 @@ struct ${SWIFT_IDIOMATIC_NAME}ApiTests {
 }
 EOT
 
-cat << EOT > Sources/Api/openapi-generator-config.yaml
+cat <<EOT > Sources/Api/openapi-generator-config.yaml
 generate:
   - types
   - server
@@ -199,13 +214,12 @@ echo "✅ Successfully added sample test"
 
 echo ""
 
+echo "🚧 Perform clean build"
+swift build
+
 case $TEST_OUTPUT in
   true)
-    echo "🚧 Perform clean build and initial test run"
-    # Voer schoon opzetten van het project uit voor eventuele fouten
-    swift build
-
-    # Voer de tests uit
+    echo "🚧 Perform test run"
     swift test
     echo "✅ Successfully built project and performed test run"
     ;;

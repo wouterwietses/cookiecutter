@@ -2,6 +2,7 @@
 
 DIRECTORY=$1
 SWIFT_IDIOMATIC_NAME=$2
+CREATE_REMOTE_REPOSITORY=$3
 
 echo "Replace generated .gitignore"
 curl -o ./.gitignore https://www.toptal.com/developers/gitignore/api/macos,swift,node
@@ -115,16 +116,33 @@ jobs:
         run: swift test --enable-code-coverage
       - name: Generate coverage report
         run: |
-          CODECOV_PATH=\$(swift test --show-codecov-path)
-          PROFDATA_PATH=\$(dirname "\$CODECOV_PATH")/default.profdata
+          BIN_PATH="\$(swift build --show-bin-path)"
+          XCTEST_PATH="\$(find \${BIN_PATH} -name '*.xctest')"
+          COV_BIN=\$XCTEST_PATH
 
-          ALL_OBJECT_FILES=\$(find .build -name "*.o" -type f)
-          SOURCE_OBJECT_FILES=\$(echo "\$ALL_OBJECT_FILES" | grep "$SWIFT_IDIOMATIC_NAME.build")
+          INSTR_PROFILE=.build/debug/codecov/default.profdata
+          # enrypoint.swift is used to setup the api
+          IGNORE_FILENAME_REGEX=".build|Tests|entrypoint.swift"
 
-          xcrun llvm-cov report -instr-profile \$PROFDATA_PATH \$SOURCE_OBJECT_FILES
+          FORMAT="lcov"
+          OUTPUT_FILE=.build/debug/codecov/lcov.info
 
-          mkdir coverage
-          xcrun llvm-cov export --format="lcov" -instr-profile \$PROFDATA_PATH \$SOURCE_OBJECT_FILES >> coverage/lcov.info
+          f="\$(basename \$XCTEST_PATH .xctest)"
+          COV_BIN="\${COV_BIN}/Contents/MacOS/\$f"
+
+          mkdir -p "\$(dirname "\$OUTPUT_FILE")"
+
+          xcrun llvm-cov report \
+              "\${COV_BIN}" \
+              -instr-profile=\$INSTR_PROFILE \
+              -ignore-filename-regex=\$IGNORE_FILENAME_REGEX \
+              -use-color
+
+          xcrun llvm-cov export \
+              "\${COV_BIN}" \
+              -instr-profile=\$INSTR_PROFILE \
+              -ignore-filename-regex=\$IGNORE_FILENAME_REGEX \
+              -format=\$FORMAT > \$OUTPUT_FILE
       - name: Upload results to Codecov 
         uses: codecov/codecov-action@v5
 EOT
@@ -132,9 +150,13 @@ EOT
 git add .
 git commit -m "chore: configured remote quality gates"
 
-echo "✅ Successfully created remote quality gates"
+echo "✅ Successfully created remote quality gates (Github)"
 
-# gh repo create $1 --public --source=. --remote=upstream
-# git remote add origin https://github.com/wouterwietses/$1.git
-# git push -u origin main
-# echo "✅ Successfully created git repo and GitHub repository"
+if $CREATE_REMOTE_REPOSITORY; then
+  gh repo create $1 --public --source=. --remote=upstream
+  git remote add origin https://github.com/wouterwietses/$1.git
+  git push -u origin main
+  echo "✅ Successfully created git repo and GitHub repository"
+else
+  echo "✅ Successfully created local git repository"
+fi
